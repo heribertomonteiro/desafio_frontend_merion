@@ -80,7 +80,6 @@ objectsGrid.container.position.set(90, 55);
 uiLayer.addChild(objectsGrid.container);
 const objectsGridPopulatePromise = objectsGrid.populateRandom();
 
-// ── Botão criado mas NÃO adicionado ainda ────────────────────────────────────
 const spinButton = new Button({
   x: app.screen.width - 227,
   y: app.screen.height - 137,
@@ -144,15 +143,14 @@ const [
 const winAnimation = new WinAnimation(app, 0.6);
 winAnimation.setSequences([
   { type: 'BigWin',   frames: bigWinFrames },
-  { type: 'TotalWin', frames: totalWinFrames },
   { type: 'MegaWin',  frames: megaWinFrames },
   { type: 'SuperWin', frames: superWinFrames },
+  { type: 'TotalWin', frames: totalWinFrames },
 ]);
 
 const character = new Character(idleFrames, characterWinFrames, app, 0.45, 0.4);
 uiLayer.addChild(character.sprite);
 
-// ── Botão adicionado APÓS tudo carregado ─────────────────────────────────────
 uiLayer.addChild(spinButton.container);
 
 // ── Lógica de exibição de win ─────────────────────────────────────────────────
@@ -162,7 +160,7 @@ function showWin() {
   uiLayer.addChild(winDimmer);
   uiLayer.addChild(winAnimation.sprite);
 
-  character.playWin();
+  character.playWin(true);
 
   winAnimation.playSequence('TotalWin', () => {
     winDimmer.visible = false;
@@ -171,7 +169,7 @@ function showWin() {
     winAnimation.stop();
 
     character.playIdle();
-  });
+  }, 2);
 }
 
 await objectsGridPopulatePromise;

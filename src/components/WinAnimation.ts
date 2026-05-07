@@ -1,6 +1,6 @@
 import * as PIXI from 'pixi.js';
 
-export type WinType ='BigWin' | 'MegaWin' | 'SuperWin' | 'TotalWin';
+export type WinType = 'BigWin' | 'MegaWin' | 'SuperWin' | 'TotalWin';
 
 export interface WinSequenceConfig {
   frames: PIXI.Texture[];
@@ -13,7 +13,6 @@ export class WinAnimation {
   private currentIndex: number = 0;
 
   constructor(app: PIXI.Application, scale: number = 1) {
-    // Inicializa com frames vazios — serão trocados na hora de tocar
     this.sprite = new PIXI.AnimatedSprite([PIXI.Texture.EMPTY]);
     this.sprite.anchor.set(0.5);
     this.sprite.x = app.screen.width / 2;
@@ -23,17 +22,11 @@ export class WinAnimation {
     this.sprite.loop = false;
   }
 
-  /** Registra as sequências em ordem crescente de win */
   setSequences(sequences: WinSequenceConfig[]) {
     this.sequences = sequences;
   }
 
-  /**
-   * Toca todas as sequências em ordem.
-   * @param upTo - toca até esse tipo (inclusive). Se omitido, toca todas.
-   * @param onComplete - chamado quando a última sequência terminar.
-   */
-  playSequence(upTo: WinType = 'TotalWin', onComplete?: () => void) {
+  playSequence(upTo: WinType = 'TotalWin', onComplete?: () => void, repeat: number = 1) {
     const order: WinType[] = ['BigWin', 'MegaWin', 'SuperWin', 'TotalWin'];
     const maxIndex = order.indexOf(upTo);
 
@@ -48,24 +41,33 @@ export class WinAnimation {
     }
 
     this.currentIndex = 0;
-    this._playNext(toPlay, onComplete);
+    this._playNext(toPlay, onComplete, repeat);
   }
 
-  private _playNext(queue: WinSequenceConfig[], onComplete?: () => void) {
+  private _playNext(queue: WinSequenceConfig[], onComplete?: () => void, repeat: number = 1) {
     if (this.currentIndex >= queue.length) {
       onComplete?.();
       return;
     }
 
     const current = queue[this.currentIndex];
+    let playCount = 0;
 
-    // Troca os frames do sprite sem recriar o objeto
-    this.sprite.textures = current.frames;
-    this.sprite.onComplete = () => {
-      this.currentIndex++;
-      this._playNext(queue, onComplete);
+    const playOnce = () => {
+      this.sprite.textures = current.frames;
+      this.sprite.onComplete = () => {
+        playCount++;
+        if (playCount < repeat) {
+          playOnce();
+        } else {
+          this.currentIndex++;
+          this._playNext(queue, onComplete, repeat);
+        }
+      };
+      this.sprite.gotoAndPlay(0);
     };
-    this.sprite.gotoAndPlay(0);
+
+    playOnce();
   }
 
   stop() {

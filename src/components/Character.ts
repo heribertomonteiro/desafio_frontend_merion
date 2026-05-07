@@ -41,19 +41,23 @@ export class Character {
     this.sprite.animationSpeed = Math.max(0, animationSpeed);
   }
 
-  playWin() {
-    this.sprite.textures = this.winFrames;
-    this.sprite.loop = false;
-    this.sprite.gotoAndPlay(0);
+  playWin(loop: boolean = false) {
+  this.sprite.textures = this.winFrames;
+  this.sprite.loop = loop;
+  this.sprite.gotoAndPlay(0);
 
-    this.sprite.onComplete = () => {
-      this.playIdle();
-    };
+    if (!loop) {
+      this.sprite.onComplete = () => {
+        // Se não for loop, fica no último frame até playIdle ser chamado
+        this.sprite.stop();
+      };
+    }
   }
 
   playIdle() {
     this.sprite.textures = this.idleFrames;
     this.sprite.loop = true;
+    this.sprite.onComplete = undefined;
     this.sprite.gotoAndPlay(0);
   }
 }
