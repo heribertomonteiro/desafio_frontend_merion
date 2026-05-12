@@ -99,6 +99,7 @@ export type ObjectsGridOptions = {
   itemScaleByObject?: Partial<Record<ObjectName, { x?: number; y?: number }>>;
   animationSpeed?: number;
   objectNames?: ObjectName[];
+  slotHeight?: number
 };
 
 export class ObjectsGrid {
@@ -119,6 +120,7 @@ export class ObjectsGrid {
   >;
   private readonly animationSpeed: number;
   private readonly objectNames: ObjectName[];
+  private readonly slotHeight?: number;
 
   constructor(private app: PIXI.Application, options: ObjectsGridOptions = {}) {
     this.container = new PIXI.Container();
@@ -139,6 +141,7 @@ export class ObjectsGrid {
     this.animationSpeed = options.animationSpeed ?? 0.25;
 
     this.objectNames = options.objectNames ?? DEFAULT_OBJECT_NAMES;
+    this.slotHeight = options.slotHeight;
   }
 
   async populateRandom() {
@@ -194,4 +197,99 @@ export class ObjectsGrid {
       }
     }
   }
+
+  private getColumns(): PIXI.AnimatedSprite[][] {
+  const cols: PIXI.AnimatedSprite[][] = Array.from(
+    { length: this.columns },
+    () => []
+  );
+
+  const gridWidth = Math.max(
+    1,
+    this.app.screen.width - this.leftPadding - this.rightPadding
+  );
+  const cellWidth = gridWidth / this.columns;
+
+  this.container.children.forEach((child) => {
+    const sprite = child as PIXI.AnimatedSprite;
+    const col = Math.round(
+      (sprite.x - this.leftPadding - cellWidth * 0.5) / cellWidth
+    );
+    const clamped = Math.max(0, Math.min(this.columns - 1, col));
+    cols[clamped].push(sprite);
+  });
+
+  return cols;
+}
+
+spin(): Promise<void> {
+  return new Promise((resolve) => {
+    const columns = this.getColumns();
+    const colCount = columns.length;
+    let colsFinished = 0;
+
+    const gridHeight = this.slotHeight ?? Math.max(
+      1,
+      this.app.screen.height - this.topPadding - this.bottomPadding
+    );
+    const cellHeight = gridHeight / this.rows;
+
+    columns.forEach((colSprites, colIndex) => {
+      // ordena os sprites de cima pra baixo
+      colSprites.sort((a, b) => a.y - b.y);
+
+      const originalYs = colSprites.map((s) => s.y);
+      const totalHeight = cellHeight * colSprites.length;
+      const speed = 10;
+      const stopDelay = colIndex * 12;
+      const spinDuration = 40 + colIndex * 12;
+
+      let frame = 0;
+      let offset = 0;
+
+      const onTick = () => {
+        frame++;
+
+        if (frame < stopDelay) return;
+
+        const localFrame = frame - stopDelay;
+
+        if (localFrame < spinDuration) {
+          // aceleração no inicio
+          const t = localFrame / spinDuration;
+          const eased = t < 0.2 ? t / 0.2 : 1;
+          offset = (offset + speed * eased) % totalHeight;
+        } else {
+          // desaceleração até parar
+          const decelFrame = localFrame - spinDuration;
+          const decelDuration = 20;
+          const t = Math.min(decelFrame / decelDuration, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          offset = (offset + speed * (1 - eased)) % totalHeight;
+
+          if (t >= 1) {
+            // reseta posições originais
+            colSprites.forEach((s, i) => {
+              s.y = originalYs[i];
+            });
+            this.app.ticker.remove(onTick);
+            colsFinished++;
+            if (colsFinished === colCount) resolve();
+            return;
+          }
+        }
+
+        colSprites.forEach((s, i) => {
+          let y = originalYs[i] + offset;
+          const maxY = originalYs[originalYs.length - 1] + cellHeight;
+          if (y > maxY) y -= totalHeight;
+          s.y = y;
+        });
+      };
+
+      this.app.ticker.add(onTick);
+    });
+  });
+}
+  
 }

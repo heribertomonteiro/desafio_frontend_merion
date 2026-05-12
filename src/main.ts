@@ -1,12 +1,17 @@
 import * as PIXI from 'pixi.js';
+import { Howl } from 'howler';
 
 // Components
 import { Button } from './components/Button';
 import { WinAnimation } from './components/WinAnimation';
 import { Character } from './components/Character';
 import { ObjectsGrid } from './components/ObjectsGrid';
+import { LoadingScreen } from './components/LoadingScreen';
 
 const app = new PIXI.Application();
+
+const spinSound = new Howl({ src: ['/assets/sounds/girando_board.mp3'], volume: 0.7 });
+const winSound = new Howl({ src: ['/assets/sounds/the-sound-of-victory-in-the-game-level.mp3'], volume: 0.9, loop: true });
 
 await app.init({
   width: 800,
@@ -20,11 +25,21 @@ app.canvas.style.height = '100%';
 const container = document.getElementById('pixi-container')!;
 container.appendChild(app.canvas);
 
+// ── Roots: loading screen vs game screen ────────────────────────────────────
+
+const gameRoot = new PIXI.Container();
+gameRoot.visible = false;
+
+app.stage.addChild(gameRoot);
+
+const loadingScreen = new LoadingScreen(app, { text: 'Carregando' });
+loadingScreen.show();
+
 const backgroundLayer = new PIXI.Container();
 const uiLayer = new PIXI.Container();
 
-app.stage.addChild(backgroundLayer);
-app.stage.addChild(uiLayer);
+gameRoot.addChild(backgroundLayer);
+gameRoot.addChild(uiLayer);
 
 const texture = await PIXI.Assets.load('/assets/static-previews/MAIN_GAME.png');
 
@@ -74,7 +89,9 @@ const objectsGrid = new ObjectsGrid(app, {
   animationSpeed: 0.6,
   itemScaleByObject: {
     Dynamit: { x: 1.8, y: 1.8 },
+    Bank: { x: 0.8, y: 0.8 },
   },
+  slotHeight: 90,
 });
 objectsGrid.container.position.set(90, 55);
 uiLayer.addChild(objectsGrid.container);
@@ -84,8 +101,19 @@ const spinButton = new Button({
   x: app.screen.width - 227,
   y: app.screen.height - 137,
   text: 'SPIN',
-  onClick: () => {
-    showWin();
+  onClick: async () => {
+    spinSound.stop();
+    const spinSoundId = spinSound.play();
+    try {
+      await objectsGrid.spin();
+    } finally {
+      spinSound.stop(spinSoundId);
+    }
+
+    winSound.stop();
+    const winSoundId = winSound.play();
+
+    showWin(winSoundId);
   },
 });
 spinButton.container.alpha = 0;
@@ -155,7 +183,7 @@ uiLayer.addChild(spinButton.container);
 
 // ── Lógica de exibição de win ─────────────────────────────────────────────────
 
-function showWin() {
+function showWin(winSoundId?: number) {
   winDimmer.visible = true;
   uiLayer.addChild(winDimmer);
   uiLayer.addChild(winAnimation.sprite);
@@ -163,6 +191,9 @@ function showWin() {
   character.playWin(true);
 
   winAnimation.playSequence('TotalWin', () => {
+    if (winSoundId !== undefined) {
+      winSound.stop(winSoundId);
+    }
     winDimmer.visible = false;
     winDimmer.removeFromParent();
     winAnimation.sprite.removeFromParent();
@@ -173,3 +204,8 @@ function showWin() {
 }
 
 await objectsGridPopulatePromise;
+
+// ── Swap: mostra o jogo só depois de carregar tudo ─────────────────────────
+
+loadingScreen.hide();
+gameRoot.visible = true;
