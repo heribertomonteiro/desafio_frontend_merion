@@ -26,10 +26,11 @@ export class LoadingScreen {
 
     this.label = new PIXI.Text(this.loadingBaseText, {
       fill: '#fff',
-      fontSize: 28,
+      fontSize: 60,
       fontWeight: 'bold',
     });
     this.label.anchor.set(0.5);
+    this.label.scale.set(0.5);
     this.label.position.set(app.screen.width / 2, app.screen.height / 2);
     this.container.addChild(this.label);
 
